@@ -95,7 +95,7 @@ func mux(u *up, request *gorequest.SuperAgent, signal chan int) {
 		})
 	case panda:
 		id := tail(u.URL)
-		request.Get(biliRoomInfoURL + id).EndBytes(func(resp gorequest.Response, body []byte, errs []error) {
+		request.Get(pandaRoomInfoURL + id).EndBytes(func(resp gorequest.Response, body []byte, errs []error) {
 			getPanda(body, errs, u)
 		})
 	default:
