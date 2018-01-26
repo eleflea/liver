@@ -15,10 +15,16 @@ const (
 	zhanqi  = "zhanqi"
 	bili    = "bilibili"
 	panda   = "panda"
+	douyu   = "douyu"
+	huya    = "huya"
+	quanmin = "quanmin"
+	longzhu = "longzhu"
+	huomao  = "huomao"
 	unknown = "unknown"
 
-	biliRoomInfoURL  = "https://api.live.bilibili.com/room/v1/Room/get_info?from=room&room_id="
-	pandaRoomInfoURL = "http://www.panda.tv/api_room?roomid="
+	biliRoomInfoURL    = "https://api.live.bilibili.com/room/v1/Room/get_info?from=room&room_id="
+	pandaRoomInfoURL   = "http://www.panda.tv/api_room?roomid="
+	longzhuRoomInfoURL = "http://yoyo-api.longzhu.com/api/room/init?domain="
 )
 
 // up represents a up
@@ -71,89 +77,17 @@ func domain(url string) string {
 	return rest[:domainEnd]
 }
 
-// get url path after first '/'
+// get url path between first '/' and next '?'
 func tail(url string) string {
 	start := strings.LastIndex(url, "/")
 	if start == -1 {
 		return ""
 	}
-	return url[start+1:]
-}
-
-func mux(u *up, request *gorequest.SuperAgent, signal chan int) {
-	do := domain(u.URL)
-	u.Platform = do
-	switch do {
-	case zhanqi:
-		request.Get(u.URL).End(func(resp gorequest.Response, body string, errs []error) {
-			getZhanqi(body, errs, u)
-		})
-	case bili:
-		id := tail(u.URL)
-		request.Get(biliRoomInfoURL + id).EndBytes(func(resp gorequest.Response, body []byte, errs []error) {
-			getBili(body, errs, u)
-		})
-	case panda:
-		id := tail(u.URL)
-		request.Get(pandaRoomInfoURL + id).EndBytes(func(resp gorequest.Response, body []byte, errs []error) {
-			getPanda(body, errs, u)
-		})
-	default:
-		u.Islive = false
-		u.Code = 3
-		u.Msg = "unsupport site error"
+	end := strings.Index(url, "?")
+	if end == -1 {
+		return url[start+1:]
 	}
-	signal <- 0
-	return
-}
-
-func getZhanqi(body string, errs []error, u *up) {
-	if len(errs) != 0 {
-		u.Islive = false
-		u.Code = 1
-		u.Msg = "get page error"
-		return
-	}
-	start := strings.Index(body, `","status":"`)
-	if start == -1 {
-		u.Islive = false
-		u.Code = 2
-		u.Msg = "search room status error"
-		return
-	}
-	if body[start+12] == '4' {
-		u.Islive = true
-		return
-	}
-	u.Islive = false
-}
-
-func getBili(body []byte, errs []error, u *up) {
-	if len(errs) != 0 {
-		u.Islive = false
-		u.Code = 1
-		u.Msg = "get page error"
-		return
-	}
-	if json.Get(body, "data", "live_status").ToInt() == 1 {
-		u.Islive = true
-		return
-	}
-	u.Islive = false
-}
-
-func getPanda(body []byte, errs []error, u *up) {
-	if len(errs) != 0 {
-		u.Islive = false
-		u.Code = 1
-		u.Msg = "get page error"
-		return
-	}
-	if json.Get(body, "data", "videoinfo", "status").ToString() == "2" {
-		u.Islive = true
-		return
-	}
-	u.Islive = false
+	return url[start+1 : end]
 }
 
 func main() {
