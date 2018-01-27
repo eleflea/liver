@@ -7,9 +7,7 @@ import (
 )
 
 func mux(u *up, request *gorequest.SuperAgent, signal chan int) {
-	do := domain(u.URL)
-	u.Platform = do
-	switch do {
+	switch u.Platform {
 	case zhanqi:
 		request.Get(u.URL).End(func(resp gorequest.Response, body string, errs []error) {
 			getZhanqi(body, errs, u)

@@ -3,10 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/fatih/color"
 	"github.com/json-iterator/go"
 	"github.com/parnurzeal/gorequest"
 )
@@ -90,36 +94,69 @@ func tail(url string) string {
 	return url[start+1 : end]
 }
 
+func pad(str string, length int) string {
+	width := (utf8.RuneCountInString(str) + len(str)) / 2
+	if length-width < 0 {
+		return str
+	}
+	return str + strings.Repeat(" ", length-width)
+}
+
+func load(upSet *Ups) (length, nameMax, platformMax int) {
+	err := json.UnmarshalFromString(config, upSet)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	length = len(upSet.Up)
+	for _, v := range upSet.Up {
+		v.Platform = domain(v.URL)
+		nameLen := len(v.Name)
+		platformLen := len(v.Platform)
+		if nameLen > nameMax {
+			nameMax = nameLen
+		}
+		if platformLen > platformMax {
+			platformMax = platformLen
+		}
+	}
+	return
+}
+
+func errorMark(code int) rune {
+	if code != 0 {
+		return '*'
+	}
+	return ' '
+}
+
 func main() {
 	start := time.Now()
 	// load json
 	var upSet Ups
-	err := json.UnmarshalFromString(config, &upSet)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	upSet.Len = len(upSet.Up)
-	signal := make(chan int, upSet.Len)
-	request := gorequest.New()
+	length, nameMax, platformMax := load(&upSet)
+	upSet.Len = length
+	signal := make(chan int, length)
+	request := gorequest.New().Timeout(time.Second * 3)
 	// run each goroutine of query
 	for _, v := range upSet.Up {
 		go mux(v, request, signal)
 	}
 	// wait all of goroutine end
-	for i := upSet.Len; i > 0; i-- {
+	for i := length; i > 0; i-- {
 		<-signal
 	}
 	upSet.Time = time.Now().Sub(start)
-
+	// sort and colorful print the result
+	sort.Slice(upSet.Up, func(i, j int) bool {
+		return upSet.Up[i].Islive
+	})
 	for _, v := range upSet.Up {
+		line := fmt.Sprintf("%s | %s | %t%c", pad(v.Name, nameMax),
+			pad(v.Platform, platformMax), v.Islive, errorMark(v.Code))
 		if v.Islive == true {
-			fmt.Printf("%s | %s | %t\n", v.Name, v.Platform, v.Islive)
-		}
-	}
-	for _, v := range upSet.Up {
-		if v.Islive == false {
-			fmt.Printf("%s | %s | %t\n", v.Name, v.Platform, v.Islive)
+			color.Yellow("%s", line)
+		} else {
+			fmt.Println(line)
 		}
 	}
 	fmt.Println(upSet.Time)
