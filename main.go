@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -41,17 +43,51 @@ type up struct {
 	Msg      string `json:"msg"`
 }
 
+type settings struct {
+	ShowTime             bool   `json:"show_time"`
+	OnColor              string `json:"on_color"`
+	OffColor             string `json:"off_color"`
+	nameMax, platformMax int
+}
+
 // Ups is todo list about up
 type Ups struct {
-	Up   []*up         `json:"ups"`
-	Len  int           `json:"len"`
-	Time time.Duration `json:"time"`
-	Code int           `json:"code"`
-	Msg  string        `json:"msg"`
+	Up       []*up         `json:"ups"`
+	Len      int           `json:"len"`
+	Time     time.Duration `json:"time"`
+	Code     int           `json:"code"`
+	Msg      string        `json:"msg"`
+	Settings settings      `json:"settings"`
 }
 
 // replace std json pkg with json-iter
 var json = jsoniter.ConfigDefault
+
+// colorful output map
+var colorMap = map[string]func(string, ...interface{}){
+	"black":     color.Black,
+	"blue":      color.Blue,
+	"cyan":      color.Cyan,
+	"green":     color.Green,
+	"hiBlack":   color.HiBlack,
+	"hiBlue":    color.HiBlue,
+	"hiCyan":    color.HiCyan,
+	"higreen":   color.HiGreen,
+	"hiMagenta": color.HiMagenta,
+	"hiRed":     color.HiRed,
+	"hiWhite":   color.HiWhite,
+	"hiYellow":  color.HiYellow,
+	"magenta":   color.Magenta,
+	"red":       color.Red,
+	"white":     color.White,
+	"yellow":    color.Yellow,
+}
+
+func handleFatal(err error) {
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
 
 func domain(url string) string {
 	start := strings.Index(url, "://")
@@ -94,24 +130,29 @@ func tail(url string) string {
 	return url[start+1 : end]
 }
 
-func pad(str string, length int) string {
-	width := (utf8.RuneCountInString(str) + len(str)) / 2
-	if length-width < 0 {
-		return str
-	}
-	return str + strings.Repeat(" ", length-width)
+func strWidth(str string) int {
+	return (utf8.RuneCountInString(str) + len(str)) / 2
 }
 
-func load(upSet *Ups) (length, nameMax, platformMax int) {
-	err := json.UnmarshalFromString(config, upSet)
-	if err != nil {
-		log.Fatalln(err)
+func pad(str string, length int) string {
+	num := length - strWidth(str)
+	if num < 0 {
+		return str
 	}
-	length = len(upSet.Up)
+	return str + strings.Repeat(" ", num)
+}
+
+func load(fileName string, upSet *Ups) {
+	var nameMax, platformMax int
+	config, err := ioutil.ReadFile(fileName)
+	handleFatal(err)
+	err = json.Unmarshal(config, upSet)
+	handleFatal(err)
+	upSet.Len = len(upSet.Up)
 	for _, v := range upSet.Up {
 		v.Platform = domain(v.URL)
-		nameLen := len(v.Name)
-		platformLen := len(v.Platform)
+		nameLen := strWidth(v.Name)
+		platformLen := strWidth(v.Platform)
 		if nameLen > nameMax {
 			nameMax = nameLen
 		}
@@ -119,7 +160,8 @@ func load(upSet *Ups) (length, nameMax, platformMax int) {
 			platformMax = platformLen
 		}
 	}
-	return
+	upSet.Settings.nameMax = nameMax
+	upSet.Settings.platformMax = platformMax
 }
 
 func errorMark(code int) rune {
@@ -129,20 +171,35 @@ func errorMark(code int) rune {
 	return ' '
 }
 
-func main() {
+func onOff(status bool) string {
+	if status == true {
+		return "ON"
+	}
+	return "OFF"
+}
+
+func displayWithColor(str, color string) {
+	display, ok := colorMap[color]
+	if ok == true {
+		display("%s", str)
+	} else {
+		fmt.Println(str)
+	}
+}
+
+func show(fileName string) {
 	start := time.Now()
 	// load json
 	var upSet Ups
-	length, nameMax, platformMax := load(&upSet)
-	upSet.Len = length
-	signal := make(chan int, length)
+	load(filepath.Join(exPath(), fileName), &upSet)
+	signal := make(chan int, upSet.Len)
 	request := gorequest.New().Timeout(time.Second * 3)
 	// run each goroutine of query
 	for _, v := range upSet.Up {
 		go mux(v, request, signal)
 	}
 	// wait all of goroutine end
-	for i := length; i > 0; i-- {
+	for i := upSet.Len; i > 0; i-- {
 		<-signal
 	}
 	upSet.Time = time.Now().Sub(start)
@@ -150,16 +207,30 @@ func main() {
 	sort.Slice(upSet.Up, func(i, j int) bool {
 		return upSet.Up[i].Islive
 	})
+	set := upSet.Settings
 	for _, v := range upSet.Up {
-		line := fmt.Sprintf("%s | %s | %t%c", pad(v.Name, nameMax),
-			pad(v.Platform, platformMax), v.Islive, errorMark(v.Code))
+		line := fmt.Sprintf("%s | %s | %s%c", pad(v.Name, set.nameMax),
+			pad(v.Platform, set.platformMax), onOff(v.Islive), errorMark(v.Code))
 		if v.Islive == true {
-			color.Yellow("%s", line)
+			displayWithColor(line, set.OnColor)
 		} else {
-			fmt.Println(line)
+			displayWithColor(line, set.OffColor)
 		}
 	}
-	fmt.Println(upSet.Time)
+	if set.ShowTime != false {
+		fmt.Println(upSet.Time)
+	}
+}
+
+func exPath() string {
+	ex, err := os.Executable()
+	handleFatal(err)
+	return filepath.Dir(ex)
+}
+
+func main() {
+	// run and show result
+	show("settings.json")
 	// press enter to exit
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

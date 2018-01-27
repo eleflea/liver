@@ -1,6 +1,4 @@
-package main
-
-var config = `{
+{
 	"ups": [
 		{
 			"name": "逍遥散人",
@@ -51,5 +49,10 @@ var config = `{
 			"name": "Elissa",
 			"url": "https://www.zhanqi.tv/1125313"
 		}
-	]
-}`
+    ],
+    "settings": {
+        "show_time": true,
+        "on_color": "hiYellow",
+        "off_color": "white"
+    }
+}
