@@ -12,12 +12,16 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pkg/errors"
+
 	"github.com/fatih/color"
 	"github.com/json-iterator/go"
 	"github.com/parnurzeal/gorequest"
 )
 
 const (
+	defaultConfig = "default.json"
+
 	zhanqi  = "zhanqi"
 	bili    = "bilibili"
 	panda   = "panda"
@@ -142,12 +146,16 @@ func pad(str string, length int) string {
 	return str + strings.Repeat(" ", num)
 }
 
-func load(fileName string, upSet *Ups) {
+func load(fileName string, upSet *Ups) error {
 	var nameMax, platformMax int
 	config, err := ioutil.ReadFile(fileName)
-	handleFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "read config fail")
+	}
 	err = json.Unmarshal(config, upSet)
-	handleFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "config format wrong")
+	}
 	upSet.Len = len(upSet.Up)
 	for _, v := range upSet.Up {
 		v.Platform = domain(v.URL)
@@ -162,6 +170,7 @@ func load(fileName string, upSet *Ups) {
 	}
 	upSet.Settings.nameMax = nameMax
 	upSet.Settings.platformMax = platformMax
+	return nil
 }
 
 func errorMark(code int) rune {
@@ -191,7 +200,8 @@ func show(fileName string) {
 	start := time.Now()
 	// load json
 	var upSet Ups
-	load(filepath.Join(exPath(), fileName), &upSet)
+	err := load(fileName, &upSet)
+	handleFatal(err)
 	signal := make(chan int, upSet.Len)
 	request := gorequest.New().Timeout(time.Second * 3)
 	// run each goroutine of query
@@ -228,9 +238,26 @@ func exPath() string {
 	return filepath.Dir(ex)
 }
 
+func fileName(args []string) string {
+	switch length := len(args); length {
+	case 0:
+		return filepath.Join(exPath(), defaultConfig)
+	case 1:
+		return filepath.Join(exPath(), args[0])
+	case 2:
+		if args[0] != "-f" {
+			handleFatal(errors.New(`unknown args "` + args[0] + `"`))
+		}
+		return args[1]
+	default:
+		return filepath.Join(exPath(), defaultConfig)
+	}
+}
+
 func main() {
+	fn := fileName(os.Args[1:])
 	// run and show result
-	show("settings.json")
+	show(fn)
 	// press enter to exit
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

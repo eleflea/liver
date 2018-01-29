@@ -1,0 +1,13 @@
+{
+	"ups": [
+		{
+			"name": "XXXX",
+			"url": "https://live.bilibili.com/xxxx"
+		}
+    ],
+    "settings": {
+        "show_time": true,
+        "on_color": "hiYellow",
+        "off_color": "white"
+    }
+}
