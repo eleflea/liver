@@ -51,7 +51,8 @@
 		}
     ],
     "settings": {
-        "show_time": true,
+		"show_time": true,
+		"pause": true,
         "on_color": "hiYellow",
         "off_color": "white"
     }

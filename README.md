@@ -10,6 +10,8 @@ liver 基于 [jsoniter](https://github.com/json-iterator/go) 、 [gorequest](htt
 
 `go build`编译即可。
 
+[![liver sreenshot](https://miao.su/images/2018/02/05/liver41a1a.jpg)](https://miao.su/image/dEVRz)
+
 ## 用法
 
 默认读取运行目录下`default.json`，注意B站地址不支持 **short room id**。
@@ -19,6 +21,7 @@ liver 基于 [jsoniter](https://github.com/json-iterator/go) 、 [gorequest](htt
 ### 配置文件
 
 - `show_time`: `bool`是否显示抓取消耗的时间。
+- `pause`: `bool`显示完毕后是否暂停。
 - `on_color`: `string`正在直播的该行文字颜色，为以下值之一。black, blue, cyan, green, hiBlack, hiBlue, hiCyan, higreen, hiMagenta, hiRed, hiWhite, hiYellow, magenta, red, white, yellow.
 - `off_color`: `string`不在直播的该行文字颜色，同`on_color`。
 

@@ -49,6 +49,7 @@ type up struct {
 
 type settings struct {
 	ShowTime             bool   `json:"show_time"`
+	IsPause              bool   `json:"pause"`
 	OnColor              string `json:"on_color"`
 	OffColor             string `json:"off_color"`
 	nameMax, platformMax int
@@ -227,8 +228,12 @@ func show(fileName string) {
 			displayWithColor(line, set.OffColor)
 		}
 	}
-	if set.ShowTime != false {
+	if set.ShowTime == true {
 		fmt.Println(upSet.Time)
+	}
+	// press enter to exit
+	if set.IsPause == true {
+		bufio.NewReader(os.Stdin).ReadBytes('\n')
 	}
 }
 
@@ -258,6 +263,4 @@ func main() {
 	fn := fileName(os.Args[1:])
 	// run and show result
 	show(fn)
-	// press enter to exit
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

@@ -7,6 +7,7 @@
     ],
     "settings": {
         "show_time": true,
+        "pause": false,
         "on_color": "hiYellow",
         "off_color": "white"
     }
